@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="M-OS Phoenix Edition: A professional, interactive desktop OS portfolio for Mohamed Elsherbini.">
+    <title>M-OS: Phoenix Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Fira+Code&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js" defer></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐉</text></svg>">
+
+    <style>
+        :root {
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+            --bg-color: #111827;
+            --surface-color: rgba(17, 24, 39, 0.85);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-color: #e5e7eb;
+            --heading-color: #ffffff;
+            --accent-color: #38bdf8;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+        }
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+        }
+        #desktop { position: absolute; inset: 0; }
+        .desktop-icon { width: 90px; text-align: center; padding: 10px; cursor: pointer; user-select: none; border-radius: 6px; position: absolute; }
+        .desktop-icon.dragging { z-index: 1000; background: rgba(255, 255, 255, 0.2); }
+        .desktop-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .desktop-icon .icon-image { font-size: 3rem; }
+        .desktop-icon span { font-size: 0.8rem; color: white; text-shadow: 1px 1px 2px var(--shadow-color); word-wrap: break-word; display: block; }
+        #taskbar { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: var(--surface-color); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); z-index: 1000; display: flex; align-items: center; padding: 0 10px; }
+        #start-button { font-size: 1.5rem; cursor: pointer; padding: 0 15px; }
+        #app-tray { display: flex; height: 100%; gap: 5px; }
+        .tray-item { background: transparent; border: none; color: var(--text-color); padding: 0 15px; height: 100%; border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .tray-item.active { border-bottom-color: var(--accent-color); background: rgba(255,255,255,0.1); }
+        #taskbar-clock { margin-left: auto; font-family: var(--font-mono); font-size: 0.9rem; }
+        #start-menu { display: none; position: absolute; bottom: 40px; left: 0; background: var(--surface-color); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: 8px; padding: 5px; min-width: 250px; z-index: 999; }
+        #start-menu.visible { display: block; }
+        .start-menu-header { padding: 10px 15px; font-weight: bold; color: var(--heading-color); border-bottom: 1px solid var(--border-color); }
+        #start-menu ul { list-style: none; margin: 0; padding: 0; }
+        #start-menu li { padding: 10px 15px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 10px; }
+        #start-menu li:hover { background-color: var(--accent-color); color: white; }
+        #start-menu hr { border: none; border-top: 1px solid var(--border-color); margin: 5px 0; }
+        .window { position: absolute; border: 1px solid var(--border-color); background-color: var(--surface-color); backdrop-filter: blur(20px); box-shadow: 0 10px 30px var(--shadow-color); display: flex; flex-direction: column; resize: both; overflow: hidden; border-radius: 8px; min-width: 350px; min-height: 250px; transition: opacity 0.2s, transform 0.2s, width 0.2s, height 0.2s; }
+        .window:not(.active) { opacity: 0.85; }
+        .window.maximized { width: 100% !important; height: calc(100% - 40px) !important; top: 0 !important; left: 0 !important; resize: none; border-radius: 0; transition: none; }
+        .window.active { border-color: var(--accent-color); box-shadow: 0 0 40px var(--shadow-color), 0 0 20px var(--accent-color); }
+        .window.minimized { display: none; }
+        .window-title-bar { background-color: rgba(0,0,0,0.2); padding: 8px; cursor: move; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .window-title { font-weight: bold; user-select: none; }
+        .window-buttons { display: flex; gap: 8px; }
+        .window-buttons button { border: none; border-radius: 50%; width: 12px; height: 12px; cursor: pointer; padding: 0; font-size: 0; }
+        .btn-close { background: #ff5f56; }
+        .btn-minimize { background: #ffbd2e; }
+        .btn-maximize { background: #27c93f; }
+        .window-content { padding: 0; flex-grow: 1; overflow: auto; display: flex; flex-direction: column; }
+        #context-menu { display: none; position: absolute; background: var(--surface-color); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: 6px; padding: 5px; z-index: 2000; min-width: 180px; }
+        #context-menu.visible { display: block; }
+        #context-menu div { padding: 8px 12px; cursor: pointer; border-radius: 4px; }
+        #context-menu div:hover { background-color: var(--accent-color); color: white; }
+        #system-monitor-widget { position: absolute; top: 1rem; right: 1rem; background: var(--surface-color); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.5rem; width: 200px; z-index: 5; }
+        .widget-header { text-align: center; font-size: 0.75rem; font-weight: bold; margin-bottom: 5px; }
+        .widget-stats { display: flex; justify-content: space-around; font-size: 0.75rem; font-family: var(--font-mono); margin-top: 5px; }
+        #cpu-chart { display: block; }
+        .file-explorer-container { display: flex; height: 100%; flex-grow: 1; }
+        .fe-content-pane { display: flex; flex-direction: column; flex-grow: 1; }
+        .fe-breadcrumb { padding: 8px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; white-space: nowrap; font-size: 0.9rem; }
+        .fe-breadcrumb span { cursor: pointer; } .fe-breadcrumb span:hover { text-decoration: underline; }
+        .fe-main-view { flex-grow: 1; padding: 10px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; overflow-y: auto; }
+        .fe-icon { width: 70px; text-align: center; padding: 5px; cursor: pointer; border-radius: 4px; }
+        .fe-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .fe-icon .icon-image { font-size: 2rem; } .fe-icon span { font-size: 0.7rem; word-wrap: break-word; display: block; }
+        .code-editor-content { flex-grow: 1; overflow: auto !important; }
+        .code-editor-content pre, .code-editor-content code { width: 100%; height: 100%; margin: 0; font-family: var(--font-mono); font-size: 0.9rem; }
+        .task-manager-table { width: 100%; border-collapse: collapse; }
+        .task-manager-table th, .task-manager-table td { padding: 8px 12px; text-align: left; font-size: 0.9rem; }
+        .task-manager-table thead { background-color: rgba(0,0,0,0.3); }
+        .settings-container { padding: 1rem; }
+        .settings-container h3 { margin-top: 0; }
+        .wallpaper-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+        .wallpaper-thumb { width: 100%; height: 70px; background-size: cover; background-position: center; border-radius: 4px; cursor: pointer; border: 2px solid transparent; }
+        .wallpaper-thumb:hover, .wallpaper-thumb.selected { border-color: var(--accent-color); }
+        .terminal-content { height: 100%; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); }
+        #terminal-output { flex-grow: 1; padding: 0.5rem; overflow-y: auto; white-space: pre-wrap; font-family: var(--font-mono); }
+        .terminal-input-line { display: flex; padding: 0.5rem; }
+        #terminal-prompt { margin-right: 0.5em; font-family: var(--font-mono); }
+        #terminal-input { background: none; border: none; color: var(--text-color); font-family: var(--font-mono); width: 100%; outline: none; }
+    </style>
+</head>
+<body>
+    <div id="desktop">
+        <div id="system-monitor-widget">
+            <div class="widget-header">SYSTEM MONITOR</div>
+            <canvas id="cpu-chart" width="180" height="40"></canvas>
+            <div class="widget-stats">
+                <span>CPU: <span id="cpu-stat">0%</span></span>
+                <span>MEM: <span id="mem-stat">0MB</span></span>
+            </div>
+        </div>
+    </div>
+    <div id="taskbar">
+        <div id="start-button">🧑🏽‍💻</div>
+        <div id="app-tray"></div>
+        <div id="taskbar-clock"></div>
+    </div>
+    <div id="start-menu">
+        <div class="start-menu-header">Mohamed Elsherbini</div>
+        <ul id="start-menu-apps"></ul>
+    </div>
+    <div id="context-menu"></div>
+
+    <script type="module">
+    //
+    // M-OS PHOENIX EDITION: A self-contained interactive portfolio OS.
+    // All HTML, CSS, and JavaScript are in this single file for guaranteed portability.
+    //
+
+    // --- EVENT BUS: For communication between modules ---
+    const eventBus = {
+        events: {},
+        subscribe(event, listener) {
+            if (!this.events[event]) this.events[event] = [];
+            this.events[event].push(listener);
+        },
+        publish(event, data) {
+            if (this.events[event]) {
+                this.events[event].forEach(listener => listener(data));
+            }
+        }
+    };
+
+    // --- VFS: The Virtual File System ---
+    let VFS = {
+        '~': { type: 'dir', content: {
+            'About': { type: 'dir', icon: '👤', content: { 'Resume.md': { type: 'file', icon: '📄', content: `<h3>Mohamed Elsherbini - Cybersecurity & AI</h3><p>A dedicated and analytical cybersecurity student with a passion for leveraging Artificial Intelligence to build proactive, resilient security solutions. My work bridges the gap between offensive security tactics and defensive machine learning models.</p><p>This entire desktop environment is a testament to my skills, built from scratch with pure JavaScript, HTML, and CSS to demonstrate my understanding of complex, stateful applications.</p>` }}},
+            'Projects': { type: 'dir', icon: '📁', content: {
+                'Malware_Hunter.proj': { type: 'file', icon: '🦠', content: '<h2>Malware Hunter: ML Detection</h2><p>A robust system achieving <strong>99.41% accuracy</strong> in detecting malicious PE binaries using a Random Forest model. Involved extensive feature engineering on 87 key PE header features.</p>' },
+                'AI_Vision.proj': { type: 'file', icon: '👁️', content: '<h2>AI Vision Security</h2><p>A model demonstrating proficiency in AI Vision technologies, applicable to visual analysis tasks in automated security monitoring and threat identification.</p>' }
+            }},
+            'Documents': { type: 'dir', icon: '📚', content: {
+                'Skills.md': { type: 'file', icon: '🛠️', content: '## Core Competencies\n- Malware Analysis (PE)\n- Machine Learning for Security\n- Network Pentesting\n- Python (Scikit-learn)\n- JavaScript (ES6+)' },
+                'README.md': { type: 'file', icon: '📄', content: '# Welcome to M-OS Phoenix\nThis is an interactive portfolio. Explore the file system, open apps, and use the terminal.'}
+            }},
+        }}
+    };
+    const getPathContent = (pathArr, fs = VFS) => { let current = fs; for (const part of pathArr) { if (part === '~') { current = fs['~']; } else if (current && current.type === 'dir' && current.content && current.content[part]) { current = current.content[part]; } else { return null; } } return current; };
+    const resolvePath = (pathStr, currentPathArr = ['~']) => { if (!pathStr) return null; let tempPath; if (pathStr.startsWith('~/')) { tempPath = ['~', ...pathStr.substring(2).split('/').filter(p => p)]; } else if (pathStr === '~' || pathStr === '/') { tempPath = ['~']; } else { tempPath = [...currentPathArr, ...pathStr.split('/').filter(p => p)]; } const resolved = []; for (const part of tempPath) { if (part === '..') { if (resolved.length > 1) resolved.pop(); } else if (part !== '.' && part !== '') { resolved.push(part); } } return resolved; };
+
+    // --- WINDOW MANAGER: Handles all GUI window logic ---
+    const windowManager = new class WindowManager {
+        constructor() { this.windows = {}; this.zIndexCounter = 10; this.activeWindowId = null; this.appTray = document.getElementById('app-tray'); }
+        createWindow({ id, title, content, width = 600, height = 400, icon = '🚀' }) {
+            if (this.isOpen(id)) { this.isMinimized(id) ? this.restore(id) : this.focus(id); return this.windows[id].element; }
+            const win = document.createElement('div'); win.className = 'window'; win.id = `win-${id}`;
+            win.style.width = `${width}px`; win.style.height = `${height}px`; win.style.top = `${50 + (Object.keys(this.windows).length % 10) * 20}px`; win.style.left = `${100 + (Object.keys(this.windows).length % 10) * 20}px`;
+            win.innerHTML = `<div class="window-title-bar"><span class="window-title">${icon} ${title}</span><div class="window-buttons"><button class="btn-minimize"></button><button class="btn-maximize"></button><button class="btn-close"></button></div></div><div class="window-content">${content}</div>`;
+            document.getElementById('desktop').appendChild(win);
+            this.windows[id] = { element: win, minimized: false, maximized: false, title: title, icon: icon, originalBounds: null };
+            this.focus(id); this.makeDraggable(win); this.addToTray(id);
+            win.querySelector('.btn-close').onclick = () => this.close(id);
+            win.querySelector('.btn-minimize').onclick = () => this.minimize(id);
+            win.querySelector('.btn-maximize').onclick = () => this.maximize(id);
+            win.addEventListener('mousedown', () => this.focus(id), true);
+            return win;
+        }
+        close(id) { if (!this.windows[id]) return; this.windows[id].element.remove(); delete this.windows[id]; this.removeFromTray(id); if (this.activeWindowId === id) this.activeWindowId = null; this.updateTray(); }
+        minimize(id) { if (!this.windows[id]) return; this.windows[id].element.classList.add('minimized'); this.windows[id].minimized = true; if(this.activeWindowId === id) this.activeWindowId = null; this.updateTray(); }
+        maximize(id) { if (!this.windows[id]) return; const win = this.windows[id]; if (win.maximized) { win.element.classList.remove('maximized'); Object.assign(win.element.style, win.originalBounds); win.maximized = false; } else { win.originalBounds = { top: win.element.style.top, left: win.element.style.left, width: win.element.style.width, height: win.element.style.height }; win.element.classList.add('maximized'); win.maximized = true; } }
+        restore(id) { if (!this.windows[id]) return; this.windows[id].element.classList.remove('minimized'); this.windows[id].minimized = false; this.focus(id); }
+        focus(id) { if (!this.windows[id] || (this.activeWindowId === id && !this.isMinimized(id))) return; this.activeWindowId = id; document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); this.windows[id].element.classList.add('active'); this.windows[id].element.style.zIndex = ++this.zIndexCounter; this.updateTray(); eventBus.publish('windowFocused', id); }
+        addToTray(id) { const trayItem = document.createElement('button'); trayItem.className = 'tray-item'; trayItem.id = `tray-${id}`; trayItem.innerHTML = `${this.windows[id].icon} <span>${this.windows[id].title.substring(0, 10)}</span>`; trayItem.onclick = () => { this.isMinimized(id) ? this.restore(id) : this.focus(id); }; this.appTray.appendChild(trayItem); this.updateTray(); }
+        removeFromTray(id) { const trayItem = document.getElementById(`tray-${id}`); if (trayItem) trayItem.remove(); }
+        updateTray() { document.querySelectorAll('.tray-item').forEach(item => item.classList.remove('active')); if (this.activeWindowId && this.windows[this.activeWindowId] && !this.windows[this.activeWindowId].minimized) { const activeTrayItem = document.getElementById(`tray-${this.activeWindowId}`); if (activeTrayItem) activeTrayItem.classList.add('active'); } }
+        makeDraggable(win) { let ox, oy; const handle = win.querySelector('.window-title-bar'); const move = (e) => { if (this.windows[win.id.replace('win-','')]?.maximized) return; win.style.left = Math.min(window.innerWidth - 50, Math.max(-win.offsetWidth + 50, e.clientX - ox)) + 'px'; win.style.top = Math.min(window.innerHeight - 40 - 20, Math.max(0, e.clientY - oy)) + 'px'; }; handle.addEventListener('mousedown', (e) => { e.preventDefault(); ox = e.clientX - win.offsetLeft; oy = e.clientY - win.offsetTop; this.focus(win.id.replace('win-', '')); document.addEventListener('mousemove', move); document.addEventListener('mouseup', () => document.removeEventListener('mousemove', move), { once: true }); }); handle.ondblclick = () => this.maximize(win.id.replace('win-', '')); }
+        isOpen(id) { return !!this.windows[id]; }
+        isMinimized(id) { return this.windows[id] && this.windows[id].minimized; }
+    };
+
+    // --- APPLICATION LAUNCHERS ---
+    function launchCodeEditor({path}) { const pathArr = resolvePath(path); if (!pathArr) return; const file = getPathContent(pathArr); if (!file || file.type !== 'file') return; const filename = pathArr[pathArr.length-1]; const id = `CodeEditor@${pathArr.join('-')}`; if(windowManager.isOpen(id)) { windowManager.focus(id); return; } const content = `<div class="code-editor-content"><pre><code class="language-markdown">${file.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></div>`; const win = windowManager.createWindow({ id, title: filename, content, width: 700, height: 500, icon: file.icon || '📄' }); setTimeout(() => { const codeBlock = win.querySelector('code'); if (codeBlock && window.hljs) { hljs.highlightElement(codeBlock); } }, 0); }
+    function launchFileExplorer({path}) { const startPath = resolvePath(path || '~'); const id = `FileExplorer@${startPath.join('/')}`; if(windowManager.isOpen(id)) { windowManager.focus(id); return; } const content = `<div class="file-explorer-container"><div class="fe-content-pane"><div class="fe-breadcrumb"></div><div class="fe-main-view"></div></div></div>`; const win = windowManager.createWindow({ id, title: `Explorer - ${startPath[startPath.length - 1]}`, content, width: 800, icon: '📁' }); let currentPathArr = startPath; const mainView = win.querySelector('.fe-main-view'); const breadcrumb = win.querySelector('.fe-breadcrumb'); const render = () => { renderBreadcrumb(); renderMainView(); }; const renderBreadcrumb = () => { breadcrumb.innerHTML = ''; let pathAccum = []; currentPathArr.forEach((part, i) => { pathAccum.push(part); const partEl = document.createElement('span'); partEl.textContent = `${part.replace('~', 'Home')} ${i < currentPathArr.length - 1 ? '> ' : ''}`; const fullPath = [...pathAccum]; partEl.onclick = () => { currentPathArr = fullPath; render(); }; breadcrumb.appendChild(partEl); }); }; const renderMainView = () => { mainView.innerHTML = ''; const currentDir = getPathContent(currentPathArr); if(!currentDir || currentDir.type !== 'dir') { mainView.innerHTML = 'Directory not found.'; return; } Object.entries(currentDir.content).forEach(([name, item]) => { const icon = document.createElement('div'); icon.className = 'fe-icon'; const iconType = item.icon || (item.type === 'dir' ? '📁' : '📄'); icon.innerHTML = `<div class="icon-image">${iconType}</div><span>${name}</span>`; icon.ondblclick = () => { const newPathArr = [...currentPathArr, name]; if(item.type === 'dir') { currentPathArr = newPathArr; render(); } else { APPS.CodeEditor.launch({path: newPathArr.join('/')}); } }; mainView.appendChild(icon); }); }; eventBus.subscribe('vfs-update', ({path}) => { const currentPathStr = currentPathArr.join('/'); if (path === currentPathStr) { renderMainView(); }}); render(); }
+    function launchTerminal({startPathArr = ['~']}) { const id = 'Terminal'; if (windowManager.isOpen(id)) { windowManager.focus(id); return; } const content = `<div class="terminal-content"><div id="terminal-output"></div><div class="terminal-input-line"><span id="terminal-prompt"></span><input type="text" id="terminal-input"></div></div>`; const win = windowManager.createWindow({ id, title: 'Console', content, width: 750, height: 450, icon: '📟' }); const output = win.querySelector('#terminal-output'); const input = win.querySelector('#terminal-input'); const prompt = win.querySelector('#terminal-prompt'); input.focus(); let currentPathArr = startPathArr; let commandHistory = []; let historyIndex = -1; const commands = { help: () => 'Commands: help, ls, cd, cat, touch, rm, open, clear, pwd', ls: () => { const dir = getPathContent(currentPathArr); return Object.keys(dir.content).map(name => `${dir.content[name].type === 'dir' ? '📁' : '📄'} ${name}`).join('\n'); }, cd: (args) => { const newPath = resolvePath(args[0], currentPathArr); if (newPath && getPathContent(newPath).type === 'dir') { currentPathArr = newPath; } else { return `cd: ${args[0]}: No such directory`; } }, cat: (args) => { const path = resolvePath(args[0], currentPathArr); const file = getPathContent(path); if (file && file.type === 'file') return file.content.replace(/<[^>]*>?/gm, ''); return 'File not found.'; }, touch: (args) => { const pathStr = args[0]; if(!pathStr) return 'touch: missing file operand'; const path = resolvePath(pathStr, currentPathArr); if(!path) return 'touch: Invalid path'; const filename = path.pop(); const parent = getPathContent(path); parent.content[filename] = {type:'file', icon: '📄', content:''}; eventBus.publish('vfs-update', {path:path.join('/')}); }, rm: (args) => { const path = resolvePath(args[0], currentPathArr); if(!path) return 'rm: Invalid path'; const filename = path.pop(); const parent = getPathContent(path); delete parent.content[filename]; eventBus.publish('vfs-update', {path:path.join('/')}); }, open: (args) => { const path = resolvePath(args[0], currentPathArr); const item = getPathContent(path); if(!item) return 'open: File or directory not found.'; if(item.type === 'dir'){ APPS.FileExplorer.launch({path: path.join('/')}); } else { APPS.CodeEditor.launch({path: path.join('/')}); } }, pwd: () => currentPathArr.join('/'), clear: () => { output.innerHTML = ''; }, }; const processCommand = (cmdStr) => { const [command, ...args] = cmdStr.trim().split(/\s+/); appendOutput(`${prompt.textContent} ${cmdStr}`); if (command && commands[command]) { const result = commands[command](args); if(result) appendOutput(result); } else if (command) { appendOutput(`${command}: command not found.`); } updatePrompt(); input.value = ''; if (cmdStr) commandHistory.unshift(cmdStr); historyIndex = -1; }; const appendOutput = (html) => { const line = document.createElement('div'); line.innerHTML = html; output.appendChild(line); output.scrollTop = output.scrollHeight; }; const updatePrompt = () => { prompt.textContent = `operator@phoenix:${currentPathArr.join('/')}$`; }; input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.value) processCommand(e.target.value); else if(e.key === 'ArrowUp') { e.preventDefault(); if(historyIndex < commandHistory.length - 1) { historyIndex++; input.value = commandHistory[historyIndex]; }} }); updatePrompt(); appendOutput('M-OS [Version 6.0 Phoenix]'); }
+    function launchTaskManager() { const id = 'TaskManager'; if (windowManager.isOpen(id)) { windowManager.focus(id); return; } const processes = [ {pid:1, name:'kernel_task', cpu:'2.1%', mem:'128MB'}, {pid:101, name:'WindowServer', cpu:'4.5%', mem:'96MB'}, {pid:105, name:'Dock.app', cpu:'0.8%', mem:'64MB'}, ]; const content = `<div class="task-manager-table-container"><table class="task-manager-table"><thead><tr><th>PID</th><th>Process Name</th><th>CPU</th><th>Memory</th></tr></thead><tbody>${processes.map(p=>`<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.cpu}</td><td>${p.mem}</td></tr>`).join('')}</tbody></table></div>`; windowManager.createWindow({id, title:'Task Manager', content, width:500, height:400, icon:'📊'}); }
+    const wallpapers = [ {name:'Abstract', url:'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&q=80'}, {name:'Neon', url:'https://images.unsplash.com/photo-1574362846835-6b533a39b037?auto=format&fit=crop&q=80'}, {name:'Planet', url:'https://images.unsplash.com/photo-1563283244-1b6a7a032734?auto=format&fit=crop&q=80'} ];
+    function launchSettings() { const id = 'Settings'; if (windowManager.isOpen(id)) { windowManager.focus(id); return; } let currentWallpaper = localStorage.getItem('m-os-wallpaper') || wallpapers[0].url; const content = `<div class="settings-container"><h3>Change Wallpaper</h3><div class="wallpaper-grid">${wallpapers.map(w=>`<div class="wallpaper-thumb ${w.url === currentWallpaper ? 'selected' : ''}" style="background-image:url('${w.url}')" data-url="${w.url}"></div>`).join('')}</div></div>`; const win = windowManager.createWindow({id, title:'Settings', content, width:400, height:300, icon:'⚙️'}); win.querySelectorAll('.wallpaper-thumb').forEach(thumb => { thumb.onclick = () => { currentWallpaper = thumb.dataset.url; localStorage.setItem('m-os-wallpaper', currentWallpaper); document.body.style.backgroundImage = `url('${currentWallpaper}')`; win.querySelectorAll('.wallpaper-thumb').forEach(t=>t.classList.remove('selected')); thumb.classList.add('selected'); }; }); }
+    
+    // --- APP REGISTRY ---
+    const APPS = { FileExplorer: { name: "File Explorer", icon: "📁", launch: launchFileExplorer }, Terminal: { name: "Console", icon: "📟", launch: launchTerminal }, CodeEditor: { name: "Code Editor", icon: "📄", launch: launchCodeEditor, isHidden: true }, TaskManager: { name: "Task Manager", icon: "📊", launch: launchTaskManager }, Settings: { name: "Settings", icon: "⚙️", launch: launchSettings } };
+
+    // --- KERNEL INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const desktop = document.getElementById('desktop');
+        const startButton = document.getElementById('start-button');
+        const startMenu = document.getElementById('start-menu');
+        const startMenuApps = document.getElementById('start-menu-apps');
+        const clock = document.getElementById('taskbar-clock');
+        const contextMenu = document.getElementById('context-menu');
+        const cpuChartCtx = document.getElementById('cpu-chart')?.getContext('2d');
+        const cpuStat = document.getElementById('cpu-stat');
+        const memStat = document.getElementById('mem-stat');
+        let iconPositions = JSON.parse(localStorage.getItem('m-os-icons')) || {};
+        
+        const updateClock = () => { clock.textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+        updateClock(); setInterval(updateClock, 1000);
+
+        let cpuData = Array(30).fill(0);
+        const drawChart = () => { const usage = Math.random() * 40 + 5 * Math.sin(Date.now() / 2000) + 5 * Math.cos(Date.now() / 5000); cpuData.push(usage); if (cpuData.length > 30) cpuData.shift(); cpuStat.textContent = `${Math.round(usage)}%`; memStat.textContent = `${Math.round(450 + Math.random() * 100)}MB`; cpuChartCtx.clearRect(0, 0, cpuChartCtx.canvas.width, cpuChartCtx.canvas.height); cpuChartCtx.beginPath(); cpuChartCtx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color'); cpuChartCtx.lineWidth = 2; cpuData.forEach((val, i) => { const x = i * (cpuChartCtx.canvas.width / 29); const y = cpuChartCtx.canvas.height - (val / 100 * cpuChartCtx.canvas.height); if (i === 0) { cpuChartCtx.moveTo(x, y); } else { cpuChartCtx.lineTo(x, y); } }); cpuChartCtx.stroke(); };
+        setInterval(drawChart, 500);
+
+        startButton.addEventListener('click', (e) => { e.stopPropagation(); startMenu.classList.toggle('visible'); });
+        document.addEventListener('click', () => startMenu.classList.remove('visible'));
+        
+        Object.entries(APPS).forEach(([id, app]) => { if(app.isHidden) return; const li = document.createElement('li'); li.innerHTML = `${app.icon} ${app.name}`; li.onclick = () => { app.launch({ path: '~' }); startMenu.classList.remove('visible'); }; startMenuApps.appendChild(li); });
+
+        const renderDesktopIcons = () => { desktop.querySelectorAll('.desktop-icon').forEach(icon => icon.remove()); const rootDir = getPathContent(['~']); let i = 0; Object.entries(rootDir.content).forEach(([name, item]) => { const appId = item.type === 'dir' ? 'FileExplorer' : 'CodeEditor'; const icon = document.createElement('div'); icon.className = 'desktop-icon'; icon.id = `icon-${name}`; icon.innerHTML = `<div class="icon-image">${item.icon || (item.type === 'dir' ? APPS.FileExplorer.icon : APPS.CodeEditor.icon)}</div><span>${name}</span>`; if(iconPositions[name]){ icon.style.top = iconPositions[name].top; icon.style.left = iconPositions[name].left; } else { icon.style.top = `${1 + i * 110}px`; icon.style.left = '1rem'; } icon.ondblclick = () => APPS[appId].launch({ path: `~/${name}` }); makeIconDraggable(icon, name); desktop.appendChild(icon); i++; }); };
+        function makeIconDraggable(icon, name) { let offsetX, offsetY; const move = (e) => { icon.style.left = `${e.clientX - offsetX}px`; icon.style.top = `${e.clientY - offsetY}px`; }; icon.addEventListener('mousedown', (e) => { e.preventDefault(); offsetX = e.clientX - icon.offsetLeft; offsetY = e.clientY - icon.offsetTop; icon.classList.add('dragging'); document.addEventListener('mousemove', move); document.addEventListener('mouseup', () => { document.removeEventListener('mousemove', move); icon.classList.remove('dragging'); iconPositions[name] = { top: icon.style.top, left: icon.style.left }; localStorage.setItem('m-os-icons', JSON.stringify(iconPositions)); }, { once: true }); }); }
+        eventBus.subscribe('vfs-update', renderDesktopIcons);
+        
+        const showContextMenu = (e, items) => { e.preventDefault(); contextMenu.innerHTML = ''; items.forEach(item => { const menuItem = document.createElement('div'); menuItem.textContent = item.label; menuItem.onclick = () => { item.action(); contextMenu.classList.remove('visible'); }; contextMenu.appendChild(menuItem); }); contextMenu.style.left = `${e.clientX}px`; contextMenu.style.top = `${e.clientY}px`; contextMenu.classList.add('visible'); };
+        desktop.addEventListener('contextmenu', (e) => { if (e.target.closest('.desktop-icon') || e.target.closest('.window') || e.target.closest('#taskbar')) return; showContextMenu(e, [ { label: "Open Console", action: () => APPS.Terminal.launch({startPathArr: ['~']}) }, { label: "Create New Folder", action: () => alert('Feature not implemented') }, { label: "Settings", action: () => APPS.Settings.launch() } ]); });
+        document.addEventListener('click', () => contextMenu.classList.remove('visible'));
+
+        const savedWallpaper = localStorage.getItem('m-os-wallpaper') || wallpapers[0].url;
+        document.body.style.backgroundImage = `url('${savedWallpaper}')`;
+        renderDesktopIcons();
+        APPS.FileExplorer.launch({ path: '~' });
+    });
+    </script>
+</body>
+</html>
